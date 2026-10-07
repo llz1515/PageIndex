@@ -32,24 +32,33 @@ async def generate_summaries_for_structure_md(structure, summary_token_threshold
 def extract_nodes_from_markdown(markdown_content):
     header_pattern = r'^(#{1,6})\s+(.+)$'
     bold_heading_pattern = r'^\*\*(.+?)\*\*\s*$'
-    code_block_pattern = r'^```'
+    code_block_pattern = r'^ {0,3}(`{3,}|~{3,})(.*)$'
     node_list = []
     
     # Setext underline: `===` (level 1) or `---` (level 2) under paragraph text.
     setext_pattern = r'^ {0,3}(=+|-+)[ \t]*$'
     lines = markdown_content.split('\n')
-    in_code_block = False
+    fence = None
     front_matter_end = _front_matter_end(lines)
     paragraph = []  # (line_num, text) of the paragraph lines seen so far
 
     for line_num, line in enumerate(lines, 1):
         stripped_line = line.strip()
         
-        # Check for code block delimiters (triple backticks)
-        if re.match(code_block_pattern, stripped_line):
-            in_code_block = not in_code_block
+        delimiter = re.match(code_block_pattern, line)
+        if fence is not None:
+            if (delimiter and delimiter.group(1)[0] == fence[0]
+                    and len(delimiter.group(1)) >= len(fence)
+                    and not delimiter.group(2).strip()):
+                fence = None
             paragraph = []
             continue
+        if delimiter:
+            marker, info = delimiter.groups()
+            if marker[0] != '`' or '`' not in info:
+                fence = marker
+                paragraph = []
+                continue
         
         # Skip empty lines
         if not stripped_line:
@@ -57,7 +66,7 @@ def extract_nodes_from_markdown(markdown_content):
             continue
         
         # Only look for headers when not inside a code block
-        if not in_code_block:
+        if fence is None:
             setext_match = re.match(setext_pattern, line)
             if setext_match and paragraph and line_num > front_matter_end:
                 title = ' '.join(text for _, text in paragraph)
