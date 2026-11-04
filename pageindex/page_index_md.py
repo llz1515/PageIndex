@@ -43,6 +43,10 @@ def extract_nodes_from_markdown(markdown_content):
     paragraph = []  # (line_num, text) of the paragraph lines seen so far
 
     for line_num, line in enumerate(lines, 1):
+        # Metadata can contain headings and fence markers in comments/literal
+        # values. Skip it before updating any Markdown parser state.
+        if line_num <= front_matter_end:
+            continue
         stripped_line = line.strip()
         
         delimiter = re.match(code_block_pattern, line)
@@ -137,11 +141,12 @@ def extract_node_text_content(node_list, markdown_lines):
 
 
 def _front_matter_end(markdown_lines):
-    """Index of the first line after a leading YAML front matter block, else 0."""
+    """Index after a closed leading YAML block; 0 means ordinary Markdown."""
     if not markdown_lines or markdown_lines[0].strip() != '---':
         return 0
     for i in range(1, len(markdown_lines)):
-        if markdown_lines[i].strip() in ('---', '...'):
+        # An indented --- or ... can be a literal block's content.
+        if markdown_lines[i].rstrip() in ('---', '...'):
             return i + 1
     return 0
 
