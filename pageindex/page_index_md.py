@@ -79,6 +79,12 @@ def extract_nodes_from_markdown(markdown_content):
                 paragraph = []
                 continue
 
+            # A thematic break ends a paragraph. A valid Setext underline
+            # has already been handled above and takes precedence over it.
+            if re.match(r'^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$', line):
+                paragraph = []
+                continue
+
             match = re.match(header_pattern, stripped_line)
             if match:
                 title = match.group(2).strip()
